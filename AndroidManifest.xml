@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.magicmod.mmgeoprovider"
+          android:sharedUserId="android.uid.shared">
+          
+ <application android:process="android.process.acore" android:label="@string/app_name">
+
+        <provider android:name="MMPhonenumGeoProvider" android:authorities="applications"
+                android:exported="true"
+                android:syncable="false" android:multiprocess="false" />
+
+    </application>
+
+</manifest>
