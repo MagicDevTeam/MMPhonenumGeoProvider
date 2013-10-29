@@ -2,6 +2,7 @@ package com.magicmod.mmgeoprovider;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -17,9 +18,17 @@ public class MMPhonenumGeoProvider extends ContentProvider {
 
     private static final String[] COLUMN_NAMES = new String[]{"GEOCODE"};
     
+    private static final UriMatcher MATCHER = new UriMatcher(
+            UriMatcher.NO_MATCH);
+
+    static {
+        MATCHER.addURI("com.magicmod.mmgeoprovider", "CN", 1);
+        MATCHER.addURI("com.magicmod.mmgeoprovider", "CN/#", 2);
+    }
+
     @Override
     public boolean onCreate() {
-        Log.i(TAG, "onCreat");
+        //Log.i(TAG, "========== onCreat");
         
         /*
          * 2013-10-29 SunRain
