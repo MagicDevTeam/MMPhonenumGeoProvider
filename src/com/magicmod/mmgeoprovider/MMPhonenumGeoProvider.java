@@ -1,14 +1,21 @@
 package com.magicmod.mmgeoprovider;
 
+import android.R.integer;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.UriMatcher;
+import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Environment;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 
@@ -26,14 +33,35 @@ public class MMPhonenumGeoProvider extends ContentProvider {
         MATCHER.addURI("com.magicmod.mmgeoprovider", "CN/#", 2);
     }
 
+    public static final String DB_PATH = Environment.getExternalStorageDirectory() + "/MagicMod/GeoDB";
     @Override
     public boolean onCreate() {
-        //Log.i(TAG, "========== onCreat");
+
+        //Copy the datebase to sdcard
+        File dir = new File(DB_PATH+"/CN");
+        if (!dir.exists()){
+            dir.mkdirs();
+        }
         
-        /*
-         * 2013-10-29 SunRain
-         * TODO:we can save the data to other places like internal storage
-         */
+        File file = new File(DB_PATH+"/CN/DB");
+        if (!file.exists()){
+            AssetManager am = this.getContext().getAssets();
+            try {
+                InputStream ins = am.open("LocDB");
+                FileOutputStream fos = new FileOutputStream(file);
+                int date = ins.read();
+                while (date != -1) {
+                    fos.write(date);
+                    date = ins.read();
+                }
+                fos.close();
+                ins.close();
+                am.close();
+            } catch (Exception e) {
+                // TODO: handle exception
+            }
+        }
+        
         return true;
     }
 
