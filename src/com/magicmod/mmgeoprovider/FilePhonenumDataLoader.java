@@ -105,7 +105,7 @@ public class FilePhonenumDataLoader {
 
     private String getDateFromSQL(String preFixedNumber) {
 
-        mDB = SQLiteDatabase.openDatabase(MMPhonenumGeoProvider.DB_PATH+"/CN/DB", null, SQLiteDatabase.OPEN_READONLY);
+        mDB = SQLiteDatabase.openDatabase(MMPhonenumGeoProvider.CN_DB_FILE, null, SQLiteDatabase.OPEN_READONLY);
         if (!mDB.isOpen()){
             Log.e(TAG, "==== open DB error");
             return null;

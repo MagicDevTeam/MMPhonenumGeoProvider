@@ -1,13 +1,16 @@
 package com.magicmod.mmgeoprovider;
 
 import android.R.integer;
+import android.R.string;
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.UriMatcher;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Environment;
 import android.text.TextUtils;
 import android.util.Log;
@@ -34,32 +37,29 @@ public class MMPhonenumGeoProvider extends ContentProvider {
     }
 
     public static final String DB_PATH = Environment.getExternalStorageDirectory() + "/MagicMod/GeoDB";
+    public static final String CN_DB_PATH = DB_PATH + "/CN";
+    public static final String CN_DB_FILE = CN_DB_PATH + "/LocDB";
+    
+    public static boolean mDbCopyFlag = false;
+    
+    private Context mContext;
+    
     @Override
     public boolean onCreate() {
 
+        mContext = this.getContext();
+        
         //Copy the datebase to sdcard
-        File dir = new File(DB_PATH+"/CN");
+        File dir = new File(CN_DB_PATH);
         if (!dir.exists()){
             dir.mkdirs();
         }
         
-        File file = new File(DB_PATH+"/CN/DB");
+        File file = new File(CN_DB_FILE);
         if (!file.exists()){
-            AssetManager am = this.getContext().getAssets();
-            try {
-                InputStream ins = am.open("LocDB");
-                FileOutputStream fos = new FileOutputStream(file);
-                int date = ins.read();
-                while (date != -1) {
-                    fos.write(date);
-                    date = ins.read();
-                }
-                fos.close();
-                ins.close();
-                am.close();
-            } catch (Exception e) {
-                // TODO: handle exception
-            }
+            mDbCopyFlag = true;
+            DbCopyTask task = new DbCopyTask();
+            task.execute("");
         }
         
         return true;
@@ -91,8 +91,10 @@ public class MMPhonenumGeoProvider extends ContentProvider {
 
     private String searchGeoCode(String countryIso,String number){
 
-        if("CN".equals(countryIso)){ //only support CN users atm
-            return FilePhonenumDataLoader.getInstance(getContext()).searchGeocode(number);
+        if (!mDbCopyFlag) {
+            if ("CN".equals(countryIso)) { // only support CN users atm
+                return FilePhonenumDataLoader.getInstance(getContext()).searchGeocode(number);
+            }
         }
         return null;
     }
@@ -115,5 +117,36 @@ public class MMPhonenumGeoProvider extends ContentProvider {
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
         throw new UnsupportedOperationException();
+    }
+    
+    private class DbCopyTask extends AsyncTask<String, Integer, String> {
+
+
+        @Override
+        protected String doInBackground(String... params) {
+            
+            Log.i(TAG, "==== Start copy files ===");
+            
+            AssetManager am = mContext.getAssets();
+            File file = new File(CN_DB_FILE);
+            try {
+                InputStream ins = am.open("LocDB");
+                FileOutputStream fos = new FileOutputStream(file);
+                int date = ins.read();
+                while (date != -1) {
+                    fos.write(date);
+                    date = ins.read();
+                }
+                fos.close();
+                ins.close();
+                am.close();
+            } catch (Exception e) {
+                // TODO: handle exception
+            }
+            if (file.exists()) {
+                mDbCopyFlag = false;
+            }
+            return null;
+        }
     }
 }
