@@ -111,27 +111,30 @@ public class FilePhonenumDataLoader {
             return null;
         }
         
-        String date[];
+        String date[] = null;
+        String s = null;
         String cmd = String.format("select DataIndex from tablenumindex where ID=%s", preFixedNumber);
         Cursor c = mDB.rawQuery(cmd, null);
-        c.moveToFirst();
-        String s = c.getString(0);
-        c.close();
-        if (!s.isEmpty() && (s != "") && (s != null)) {
-            date = s.split("-");            
-        } else {
-            mDB.close();
-            return null;
+        if (c.moveToFirst()) {
+            s = c.getString(0);
+            c.close();
+            if (!s.isEmpty() && !s.equals("") && (s != null)) {
+                date = s.split("-");
+            } else {
+                mDB.close();
+                return null;
+            }
         }
         cmd = String.format("select DataValue from tabledataindex where ID=%s", date[0]);
         c = mDB.rawQuery(cmd, null);
-        c.moveToFirst();
-        s = c.getString(0);
-        c.close();
-        if (s.isEmpty() || s == null || s == "") {
-            mDB.close();
-            return null;
-        }       
+        if (c.moveToFirst()){
+            s = c.getString(0);
+            c.close();
+            if (s.isEmpty() || s == null || s.equals("")) {
+                mDB.close();
+                return null;
+            }
+        }
         mDB.close();
 
         /*
