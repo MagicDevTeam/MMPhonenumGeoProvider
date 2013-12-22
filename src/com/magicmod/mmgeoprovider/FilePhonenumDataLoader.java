@@ -108,6 +108,7 @@ public class FilePhonenumDataLoader {
         mDB = SQLiteDatabase.openDatabase(MMPhonenumGeoProvider.CN_DB_FILE, null, SQLiteDatabase.OPEN_READONLY);
         if (!mDB.isOpen()){
             Log.e(TAG, "==== open DB error");
+            mDB = null;
             return null;
         }
         
@@ -118,12 +119,18 @@ public class FilePhonenumDataLoader {
         if (c.moveToFirst()) {
             s = c.getString(0);
             c.close();
-            if (!s.isEmpty() && !s.equals("") && (s != null)) {
+            if (!s.isEmpty() && (s != null)) {
                 date = s.split("-");
             } else {
                 mDB.close();
                 return null;
             }
+        } else {
+            if (!c.isClosed())
+                c.close();
+            if (mDB.isOpen())
+                mDB.close();
+            return null;
         }
         cmd = String.format("select DataValue from tabledataindex where ID=%s", date[0]);
         c = mDB.rawQuery(cmd, null);
