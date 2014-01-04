@@ -5,6 +5,9 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteException;
+import android.os.AsyncTask;
+import android.os.Process;
 import android.util.Log;
 
 import java.io.*;
@@ -15,8 +18,6 @@ import java.util.Comparator;
 public class FilePhonenumDataLoader {
 
     public static final String TAG="FilePhonenumDataLoader";
-    
-    static SQLiteDatabase mDB;
 
     //use a cached date to save time
     private static String mCachedPhoneNum,mCachedDateString;
@@ -28,6 +29,13 @@ public class FilePhonenumDataLoader {
     
     private static int mNumType;
     
+    private static final String CN_DB_NAME = "LocDB";
+    private static String mDatabasePath;
+
+    public static boolean mDbCopyFlag = false;
+
+    private Context mContext;
+
     private static final String[][] PHONE_TYPE_INFO = {
         {"100","移动"},
         {"200","联通"},
@@ -35,6 +43,15 @@ public class FilePhonenumDataLoader {
         {"400","固话"},
         {"500","其他"},
     };
+
+    private static FilePhonenumDataLoader filePhonenumDataLoader;
+
+    public static FilePhonenumDataLoader getInstance(Context context){
+        if (filePhonenumDataLoader == null) {
+            filePhonenumDataLoader = new FilePhonenumDataLoader(context);
+        }
+        return filePhonenumDataLoader;
+    }
     
     /* 573 12345678 11
      * 573 1234567 10
@@ -104,46 +121,52 @@ public class FilePhonenumDataLoader {
     }
 
     private String getDateFromSQL(String preFixedNumber) {
+        if (mDbCopyFlag) {
+            return null;
+        }
 
-        mDB = SQLiteDatabase.openDatabase(MMPhonenumGeoProvider.CN_DB_FILE, null, SQLiteDatabase.OPEN_READONLY);
-        if (!mDB.isOpen()){
+        SQLiteDatabase mDB = createOrOpenDatabase();
+
+        if (mDB == null){
             Log.e(TAG, "==== open DB error");
-            mDB = null;
             return null;
         }
         
         String date[] = null;
         String s = null;
         String cmd = String.format("select DataIndex from tablenumindex where ID=%s", preFixedNumber);
-        Cursor c = mDB.rawQuery(cmd, null);
-        if (c.moveToFirst()) {
-            s = c.getString(0);
-            c.close();
-            if (!s.isEmpty() && (s != null)) {
-                date = s.split("-");
-            } else {
-                mDB.close();
-                return null;
-            }
-        } else {
-            if (!c.isClosed())
+        Cursor c = null;
+        try {
+            c = mDB.rawQuery(cmd, null);
+            if (c.moveToFirst()) {
+                s = c.getString(0);
                 c.close();
-            if (mDB.isOpen())
+                if (!s.isEmpty() && (s != null)) {
+                    date = s.split("-");
+
+                    cmd = String.format("select DataValue from tabledataindex where ID=%s", date[0]);
+
+                    c = mDB.rawQuery(cmd, null);
+                    if (c.moveToFirst()) {
+                        s = c.getString(0);
+                        c.close();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // TODO: handle exception
+            e.printStackTrace();
+            return null;
+        } finally {
+            if (c != null && !c.isClosed())
+                c.close();
+            if (mDB != null && mDB.isOpen())
                 mDB.close();
+        }
+
+        if (s == null || s.isEmpty() || s.equals("")) {
             return null;
         }
-        cmd = String.format("select DataValue from tabledataindex where ID=%s", date[0]);
-        c = mDB.rawQuery(cmd, null);
-        if (c.moveToFirst()){
-            s = c.getString(0);
-            c.close();
-            if (s.isEmpty() || s == null || s.equals("")) {
-                mDB.close();
-                return null;
-            }
-        }
-        mDB.close();
-
         /*
          * 移动 100
          * 联通 200
@@ -158,17 +181,6 @@ public class FilePhonenumDataLoader {
             }
         }
         return s + date[1];
-    }
-
-    private static FilePhonenumDataLoader filePhonenumDataLoader;
-
-    public static FilePhonenumDataLoader getInstance(Context context){
-
-        if (filePhonenumDataLoader == null) {
-            filePhonenumDataLoader = new FilePhonenumDataLoader();
-            
-        }
-        return filePhonenumDataLoader;
     }
 
     /* 
@@ -203,5 +215,83 @@ public class FilePhonenumDataLoader {
             }
         }
         return s;
+    }
+
+    private SQLiteDatabase createOrOpenDatabase() {
+        SQLiteDatabase db = getDatabase();
+        if (db == null){
+            File dir = new File(mDatabasePath);
+            if (!dir.exists()){
+                dir.mkdirs();
+            }
+
+            File file = new File(getDataBasePathCN());
+            if (!file.exists()){
+                mDbCopyFlag = true;
+                DbCopyTask task = new DbCopyTask();
+                task.execute("");
+            }
+            return null;
+        }
+        return db;
+    }
+
+    private SQLiteDatabase getDatabase() {
+        SQLiteDatabase db = null;
+        try {
+             db = SQLiteDatabase.openDatabase(
+                    getDataBasePathCN(), null, SQLiteDatabase.OPEN_READONLY);
+        } catch (SQLiteException e) {
+            // TODO: handle exception
+            Log.e(TAG, "Cant't open database");
+            return null;
+        }
+        return db;
+    }
+
+    private FilePhonenumDataLoader(Context context) {
+        mContext = context;
+        mDatabasePath = mContext.getApplicationInfo().dataDir + "/databases";
+    }
+
+    private static String getDataBasePathCN() {
+        return mDatabasePath + "/" +CN_DB_NAME;
+    }
+
+    private class DbCopyTask extends AsyncTask<String, Integer, String> {
+
+        @Override
+        protected String doInBackground(String... params) {
+
+            Log.i(TAG, "==== Start copy files ===");
+
+            AssetManager am = mContext.getAssets();
+            File file = new File(getDataBasePathCN());
+            if (!file.exists()) {
+                try {
+                    InputStream ins = am.open("LocDB");
+                    FileOutputStream fos = new FileOutputStream(file);
+                    byte buffer[] = new byte[1024];
+                    int length;
+                    while ((length = ins.read(buffer)) > 0) {
+                        fos.write(buffer, 0, length);
+                    }
+
+                    fos.flush();
+                    fos.close();
+                    ins.close();
+                    am.close();
+                } catch (Exception e) {
+                    // TODO: handle exception
+                    e.printStackTrace();
+                } finally {
+                    //kill app to make database work
+                    Process.killProcess(Process.myPid());
+                }
+            } else {
+                mDbCopyFlag = false;
+            }
+            return null;
+        }
     }
 }

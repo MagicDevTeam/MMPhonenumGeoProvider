@@ -36,32 +36,8 @@ public class MMPhonenumGeoProvider extends ContentProvider {
         MATCHER.addURI("com.magicmod.mmgeoprovider", "CN/#", 2);
     }
 
-    public static final String DB_PATH = Environment.getExternalStorageDirectory() + "/MagicMod/GeoDB";
-    public static final String CN_DB_PATH = DB_PATH + "/CN";
-    public static final String CN_DB_FILE = CN_DB_PATH + "/LocDB";
-    
-    public static boolean mDbCopyFlag = false;
-    
-    private Context mContext;
-    
     @Override
     public boolean onCreate() {
-
-        mContext = this.getContext();
-        
-        //Copy the datebase to sdcard
-        File dir = new File(CN_DB_PATH);
-        if (!dir.exists()){
-            dir.mkdirs();
-        }
-        
-        File file = new File(CN_DB_FILE);
-        if (!file.exists()){
-            mDbCopyFlag = true;
-            DbCopyTask task = new DbCopyTask();
-            task.execute("");
-        }
-        
         return true;
     }
 
@@ -91,11 +67,11 @@ public class MMPhonenumGeoProvider extends ContentProvider {
 
     private String searchGeoCode(String countryIso,String number){
 
-        if (!mDbCopyFlag) {
+        //if (!mDbCopyFlag) {
             if ("CN".equals(countryIso)) { // only support CN users atm
                 return FilePhonenumDataLoader.getInstance(getContext()).searchGeocode(number);
             }
-        }
+        //}
         return null;
     }
 
@@ -117,36 +93,5 @@ public class MMPhonenumGeoProvider extends ContentProvider {
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
         throw new UnsupportedOperationException();
-    }
-    
-    private class DbCopyTask extends AsyncTask<String, Integer, String> {
-
-
-        @Override
-        protected String doInBackground(String... params) {
-            
-            Log.i(TAG, "==== Start copy files ===");
-            
-            AssetManager am = mContext.getAssets();
-            File file = new File(CN_DB_FILE);
-            try {
-                InputStream ins = am.open("LocDB");
-                FileOutputStream fos = new FileOutputStream(file);
-                int date = ins.read();
-                while (date != -1) {
-                    fos.write(date);
-                    date = ins.read();
-                }
-                fos.close();
-                ins.close();
-                am.close();
-            } catch (Exception e) {
-                // TODO: handle exception
-            }
-            if (file.exists()) {
-                mDbCopyFlag = false;
-            }
-            return null;
-        }
     }
 }
